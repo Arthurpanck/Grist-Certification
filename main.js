@@ -512,7 +512,7 @@ function extractTopUser(db) {
    ═══════════════════════════════════════════════════════════════ */
 
 /** Heures de formation équivalentes par niveau */
-const LEVEL_HOURS = { D: 7, I: 14, A: 21 };
+const LEVEL_HOURS = { D: 14, I: 14, A: 10 };
 
 /**
  * Seuils :
