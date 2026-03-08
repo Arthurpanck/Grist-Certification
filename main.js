@@ -654,14 +654,19 @@ function escHtml(str) {
    ═══════════════════════════════════════════════════════════════ */
 
 /**
- * Champs formulaire du template (découverts par inspection du PDF) :
- *   text_1jvif → Nom du participant      (Rect 176–440, y≈421 from bottom)
- *   text_2usrw → Niveau de formation     (Rect 212–328, y≈302 from bottom)
- *   text_3tbhf → Heures (chiffre seul)   (Rect 216–247, y≈273 from bottom — champ étroit)
- *   text_4bpvt → Date de délivrance      (Rect 249–353, y≈194 from bottom)
+ * Positions des 4 zones à remplir — extraites par inspection binaire du PDF.
+ * Format : [x1, y1, x2, y2] en points PDF (origine bas-gauche, A4 = 595×842).
  *
- * Approche : remplissage direct via form.getFields() (pdf-lib), puis flatten.
- * Inspiré de pdf-tools.js du widget publipostage Grand Lyon.
+ *   text_1jvif → Nom          Rect [176, 411, 440, 431]   largeur 264 pts
+ *   text_2usrw → Niveau       Rect [212, 292, 328, 312]   largeur 116 pts
+ *   text_3tbhf → Heures       Rect [216, 263, 247, 283]   largeur  31 pts (chiffre seul)
+ *   text_4bpvt → Date         Rect [249, 184, 353, 204]   largeur 104 pts
+ *
+ * Pourquoi drawText plutôt que form.getFields() ?
+ * Les champs sont stockés dans un stream compressé (cross-reference object stream,
+ * PDF 1.5+). pdf-lib décompresse les objets mais ne remonte pas toujours l'AcroForm
+ * dans ce cas précis — form.getFields() renvoie [] → rien n'est écrit → form.flatten()
+ * efface les cases vides. On contourne en dessinant directement aux coordonnées exactes.
  */
 async function generateAndDownloadCert(results, userInfo) {
   const level = getCertificationLevel(results);
@@ -678,59 +683,64 @@ async function generateAndDownloadCert(results, userInfo) {
     Génération en cours…`;
 
   try {
-    const { PDFDocument } = PDFLib;
+    const { PDFDocument, StandardFonts, rgb } = PDFLib;
 
-    // Charge le template
     const templateBytes = await fetch('./Template_Certificat_Grist_MOOC - 3.pdf').then(r => {
       if (!r.ok) throw new Error(`Template introuvable (HTTP ${r.status})`);
       return r.arrayBuffer();
     });
 
     const pdfDoc = await PDFDocument.load(templateBytes, { ignoreEncryption: true });
-    const form   = pdfDoc.getForm();
+    const page   = pdfDoc.getPages()[0];
 
+    const fontReg  = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+    const RED   = rgb(0.78, 0.06, 0.06);
+    const DARK  = rgb(0.12, 0.12, 0.12);
+    const WHITE = rgb(1, 1, 1);
+
+    /**
+     * Remplit une zone rectangulaire :
+     *  1. Fond blanc pour masquer le placeholder éventuel
+     *  2. Texte centré horizontalement, centré verticalement dans le rect
+     */
+    function fillZone([x1, y1, x2, y2], text, font, size, color = DARK) {
+      const rectW = x2 - x1;
+      const rectH = y2 - y1;
+      // Fond blanc
+      page.drawRectangle({ x: x1, y: y1, width: rectW, height: rectH, color: WHITE });
+      // Centrage horizontal (clip si le texte dépasse)
+      const tw = font.widthOfTextAtSize(text, size);
+      const x  = x1 + Math.max(1, (rectW - tw) / 2);
+      // Centrage vertical : baseline ≈ milieu du rect moins ~30 % de la hauteur de police
+      const y  = y1 + (rectH - size * 0.7) / 2;
+      page.drawText(text, { x, y, size, font, color });
+    }
+
+    // Aplatit les champs formulaire vides pour éviter qu'ils couvrent notre texte
+    try { pdfDoc.getForm().flatten(); } catch (_) {}
+
+    // Données à injecter
     const levelLabels = { D: 'Débutant', I: 'Intermédiaire', A: 'Avancé' };
-    const name        = userInfo ? userInfo.name : 'Participant(e)';
-    const dateStr     = new Date().toLocaleDateString('fr-FR', {
+    const name    = userInfo ? userInfo.name : 'Participant(e)';
+    const dateStr = new Date().toLocaleDateString('fr-FR', {
       day: 'numeric', month: 'long', year: 'numeric',
     });
 
-    // Correspondance champ → valeur
-    const DATA = {
-      text_1jvif: name,                          // Zone nom (large)
-      text_2usrw: levelLabels[level],            // Niveau de formation
-      text_3tbhf: String(LEVEL_HOURS[level]),    // Heures (chiffre seul, champ étroit)
-      text_4bpvt: dateStr,                       // Date de délivrance
-    };
+    // ── 1. Nom (zone large, 264 pts) ──────────────────────────
+    fillZone([176, 411, 440, 431], name, fontBold, 13, DARK);
 
-    // Remplissage — même pattern que pdf-tools.js du publipostage Grand Lyon
-    form.getFields().forEach(field => {
-      let fieldName = field.getName();
-      // Décodage hex si nécessaire (ex: #C3#A9 → é)
-      try {
-        if (fieldName.includes('#')) {
-          fieldName = decodeURIComponent(fieldName.replace(/#/g, '%'));
-        }
-      } catch (_) {}
+    // ── 2. Niveau (rouge gras) ────────────────────────────────
+    fillZone([212, 292, 328, 312], levelLabels[level], fontBold, 11, RED);
 
-      const value = DATA[fieldName];
-      if (value === undefined) return;
+    // ── 3. Heures (champ étroit 31 pts — chiffre seul) ────────
+    fillZone([216, 263, 247, 283], String(LEVEL_HOURS[level]), fontBold, 10, DARK);
 
-      try {
-        if (field.constructor.name === 'PDFTextField') {
-          field.setText(value);
-        } else if (field.constructor.name === 'PDFCheckBox') {
-          // pas utilisé ici mais géré par robustesse
-          if (value === true || value === 'true' || value === 1) field.check();
-          else field.uncheck();
-        }
-      } catch (e) {
-        console.warn(`Champ PDF "${fieldName}" non rempli :`, e.message);
-      }
-    });
+    // ── 4. Date ───────────────────────────────────────────────
+    fillZone([249, 184, 353, 204], dateStr, fontReg, 9, DARK);
 
-    form.flatten();
-
+    // Sauvegarde + téléchargement
     const pdfBytes = await pdfDoc.save();
     const blob     = new Blob([pdfBytes], { type: 'application/pdf' });
     const url      = URL.createObjectURL(blob);
