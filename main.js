@@ -718,9 +718,6 @@ async function generateAndDownloadCert(results, userInfo) {
       page.drawText(text, { x, y, size, font, color });
     }
 
-    // Aplatit les champs formulaire vides pour éviter qu'ils couvrent notre texte
-    try { pdfDoc.getForm().flatten(); } catch (_) {}
-
     // Données à injecter
     const levelLabels = { D: 'Débutant', I: 'Intermédiaire', A: 'Avancé' };
     const name    = userInfo ? userInfo.name : 'Participant(e)';
@@ -739,6 +736,10 @@ async function generateAndDownloadCert(results, userInfo) {
 
     // ── 4. Date ───────────────────────────────────────────────
     fillZone([249, 184, 353, 204], dateStr, fontReg, 9, DARK);
+
+    // Aplatit les widgets de formulaire APRÈS avoir dessiné le texte
+    // (les widgets PDF s'affichent au-dessus du contenu de page — flatten les supprime)
+    try { pdfDoc.getForm().flatten(); } catch (_) {}
 
     // Sauvegarde + téléchargement
     const pdfBytes = await pdfDoc.save();
