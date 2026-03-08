@@ -605,12 +605,6 @@ const LEVEL_META = {
   },
 };
 
-const LEVEL_TOTALS = { D: 11, I: 4, A: 8 }; // exercices disponibles par niveau
-
-function niveauLabel(code) {
-  return { D: 'Débutant', I: 'Intermédiaire', A: 'Avancé' }[code] || code;
-}
-
 function renderResults(results, userInfo) {
   const level = getCertificationLevel(results);
   const meta  = LEVEL_META[level];
@@ -637,78 +631,12 @@ function renderResults(results, userInfo) {
       '<p class="cert-no-user">Identité non détectée (historique absent ou vide)</p>';
   }
 
-  /* ── Barres de progression par niveau ─────────────────── */
-  ['D', 'I', 'A'].forEach(lvl => {
-    const done  = results.filter(r => r.niveau === lvl && r.done).length;
-    const total = LEVEL_TOTALS[lvl];
-    const pct   = total > 0 ? Math.round((done / total) * 100) : 0;
-
-    document.getElementById(`fill-${lvl}`).style.width   = pct + '%';
-    document.getElementById(`count-${lvl}`).textContent  = `${done} / ${total}`;
-  });
-
   /* ── Bouton téléchargement certificat ─────────────────── */
   const dlBtn = $('btn-download-cert');
-  dlBtn.disabled = (level === 'none');
-  // Retire les anciens listeners puis en rattache un nouveau
   const dlBtnClone = dlBtn.cloneNode(true);
   dlBtn.parentNode.replaceChild(dlBtnClone, dlBtn);
   dlBtnClone.disabled = (level === 'none');
   dlBtnClone.addEventListener('click', () => generateAndDownloadCert(results, userInfo));
-
-  /* ── Liste des exercices par séquence ─────────────────── */
-  const container = document.getElementById('sequences');
-  container.innerHTML = '';
-
-  // Regroupe par séquence
-  const bySeq = {};
-  results.forEach(r => {
-    if (!bySeq[r.seq]) bySeq[r.seq] = [];
-    bySeq[r.seq].push(r);
-  });
-
-  Object.keys(bySeq).sort((a, b) => Number(a) - Number(b)).forEach(seqKey => {
-    const seqResults = bySeq[seqKey];
-    const seqDone    = seqResults.filter(r => r.done).length;
-    const seqTotal   = seqResults.length;
-    const seqInfo    = SEQUENCES[seqKey] || { label: `Séquence ${seqKey}` };
-
-    const group = document.createElement('div');
-    group.className = 'seq-group';
-
-    group.innerHTML = `
-      <div class="seq-header">
-        <div class="seq-left">
-          <span class="seq-badge">SEQ ${seqKey}</span>
-          <span class="seq-title">${escHtml(seqInfo.label)}</span>
-        </div>
-        <div class="seq-right">
-          <span class="seq-count">${seqDone}&thinsp;/&thinsp;${seqTotal}</span>
-          <span class="seq-chevron">▼</span>
-        </div>
-      </div>
-      <div class="seq-body">
-        ${seqResults.map(r => `
-          <div class="ex-row">
-            <div class="ex-icon">${r.done ? '✅' : '❌'}</div>
-            <div>
-              <div class="ex-name ${r.done ? 'done' : 'miss'}">${escHtml(r.nom)}</div>
-              <div class="ex-detail">${escHtml(r.detail)}</div>
-            </div>
-            <span class="ex-id">${r.id}</span>
-            <span class="niv-badge ${r.niveau}">${niveauLabel(r.niveau)}</span>
-          </div>
-        `).join('')}
-      </div>
-    `;
-
-    // Collapse / expand au clic sur l'en-tête
-    group.querySelector('.seq-header').addEventListener('click', () => {
-      group.classList.toggle('collapsed');
-    });
-
-    container.appendChild(group);
-  });
 }
 
 /** Échappe les caractères HTML (XSS-safe) */
@@ -726,23 +654,14 @@ function escHtml(str) {
    ═══════════════════════════════════════════════════════════════ */
 
 /**
- * Coordonnées de placement du texte dans Template_Certificat_Grist_MOOC - 3.pdf
- * A4 = 595 × 842 pts  |  Origine (0,0) en bas-à-gauche dans pdf-lib
- * Ajuster Y si le texte ne tombe pas dans la bonne zone.
- */
-const PDF_ZONES = {
-  name:  { y: 526, size: 18 },      // Zone blanche entre les deux filets rouges
-  level: { y: 414, size: 13 },      // Sous "Niveau de formation accordé :"
-  hours: {                           // Cellule droite du tableau Équivalent
-    rectX: 222, rectY: 394, rectW: 330, rectH: 22,
-    textY: 402, size: 11,
-  },
-  date:  { y: 335, size: 11 },      // Dans le cadre "Délivré le"
-};
-
-/**
- * Génère le certificat PDF rempli et le télécharge.
- * Utilise pdf-lib (chargé depuis CDN dans index.html).
+ * Champs formulaire du template (découverts par inspection du PDF) :
+ *   text_1jvif → Nom du participant      (Rect 176–440, y≈421 from bottom)
+ *   text_2usrw → Niveau de formation     (Rect 212–328, y≈302 from bottom)
+ *   text_3tbhf → Heures (chiffre seul)   (Rect 216–247, y≈273 from bottom — champ étroit)
+ *   text_4bpvt → Date de délivrance      (Rect 249–353, y≈194 from bottom)
+ *
+ * Approche : remplissage direct via form.getFields() (pdf-lib), puis flatten.
+ * Inspiré de pdf-tools.js du widget publipostage Grand Lyon.
  */
 async function generateAndDownloadCert(results, userInfo) {
   const level = getCertificationLevel(results);
@@ -759,60 +678,59 @@ async function generateAndDownloadCert(results, userInfo) {
     Génération en cours…`;
 
   try {
-    const { PDFDocument, StandardFonts, rgb } = PDFLib;
+    const { PDFDocument } = PDFLib;
 
-    // Charge le template PDF depuis le même répertoire que la page
-    const templateUrl = './Template_Certificat_Grist_MOOC - 3.pdf';
-    const templateBytes = await fetch(templateUrl).then(r => {
-      if (!r.ok) throw new Error(`Template introuvable (${r.status})`);
+    // Charge le template
+    const templateBytes = await fetch('./Template_Certificat_Grist_MOOC - 3.pdf').then(r => {
+      if (!r.ok) throw new Error(`Template introuvable (HTTP ${r.status})`);
       return r.arrayBuffer();
     });
 
-    const pdfDoc = await PDFDocument.load(templateBytes);
-    const page   = pdfDoc.getPages()[0];
-    const { width } = page.getSize();
+    const pdfDoc = await PDFDocument.load(templateBytes, { ignoreEncryption: true });
+    const form   = pdfDoc.getForm();
 
-    const fontReg  = await pdfDoc.embedFont(StandardFonts.Helvetica);
-    const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-
-    const RED   = rgb(0.78, 0.06, 0.06);
-    const DARK  = rgb(0.12, 0.12, 0.12);
-    const WHITE = rgb(1,    1,    1);
-
-    /** Centre le texte horizontalement sur la page */
-    function drawCentered(text, font, size, y, color = DARK) {
-      const tw = font.widthOfTextAtSize(text, size);
-      page.drawText(text, { x: (width - tw) / 2, y, size, font, color });
-    }
-
-    // 1. Nom du participant
-    const name = userInfo ? userInfo.name : 'Participant(e)';
-    drawCentered(name, fontBold, PDF_ZONES.name.size, PDF_ZONES.name.y);
-
-    // 2. Niveau de certification (rouge gras, centré)
     const levelLabels = { D: 'Débutant', I: 'Intermédiaire', A: 'Avancé' };
-    drawCentered(levelLabels[level], fontBold, PDF_ZONES.level.size, PDF_ZONES.level.y, RED);
-
-    // 3. Heures de formation — couvre le texte existant avec un rect blanc puis réécrit
-    const z = PDF_ZONES.hours;
-    page.drawRectangle({ x: z.rectX, y: z.rectY, width: z.rectW, height: z.rectH, color: WHITE });
-    const hoursText = `${LEVEL_HOURS[level]} heures de formation`;
-    const tw = fontBold.widthOfTextAtSize(hoursText, z.size);
-    page.drawText(hoursText, {
-      x: z.rectX + (z.rectW - tw) / 2,
-      y: z.textY,
-      size: z.size,
-      font: fontBold,
-      color: RED,
-    });
-
-    // 4. Date de délivrance
-    const dateStr = new Date().toLocaleDateString('fr-FR', {
+    const name        = userInfo ? userInfo.name : 'Participant(e)';
+    const dateStr     = new Date().toLocaleDateString('fr-FR', {
       day: 'numeric', month: 'long', year: 'numeric',
     });
-    drawCentered(dateStr, fontReg, PDF_ZONES.date.size, PDF_ZONES.date.y);
 
-    // Sauvegarde + téléchargement
+    // Correspondance champ → valeur
+    const DATA = {
+      text_1jvif: name,                          // Zone nom (large)
+      text_2usrw: levelLabels[level],            // Niveau de formation
+      text_3tbhf: String(LEVEL_HOURS[level]),    // Heures (chiffre seul, champ étroit)
+      text_4bpvt: dateStr,                       // Date de délivrance
+    };
+
+    // Remplissage — même pattern que pdf-tools.js du publipostage Grand Lyon
+    form.getFields().forEach(field => {
+      let fieldName = field.getName();
+      // Décodage hex si nécessaire (ex: #C3#A9 → é)
+      try {
+        if (fieldName.includes('#')) {
+          fieldName = decodeURIComponent(fieldName.replace(/#/g, '%'));
+        }
+      } catch (_) {}
+
+      const value = DATA[fieldName];
+      if (value === undefined) return;
+
+      try {
+        if (field.constructor.name === 'PDFTextField') {
+          field.setText(value);
+        } else if (field.constructor.name === 'PDFCheckBox') {
+          // pas utilisé ici mais géré par robustesse
+          if (value === true || value === 'true' || value === 1) field.check();
+          else field.uncheck();
+        }
+      } catch (e) {
+        console.warn(`Champ PDF "${fieldName}" non rempli :`, e.message);
+      }
+    });
+
+    form.flatten();
+
     const pdfBytes = await pdfDoc.save();
     const blob     = new Blob([pdfBytes], { type: 'application/pdf' });
     const url      = URL.createObjectURL(blob);
@@ -828,6 +746,7 @@ async function generateAndDownloadCert(results, userInfo) {
 
   } catch (err) {
     alert('Erreur lors de la génération du certificat :\n' + err.message);
+    console.error(err);
   } finally {
     btn.disabled = false;
     btn.innerHTML = `
