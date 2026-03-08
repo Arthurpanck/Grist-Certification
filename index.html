@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Certification Formation Grist</title>
+  <style>
+    /* ── Reset & base ────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --blue:        #1A5FA8;
+      --blue-dark:   #124282;
+      --blue-light:  #EAF2FC;
+      --green:       #1A7A45;
+      --green-light: #E8F8EE;
+      --orange:      #C95F00;
+      --orange-light:#FEF3E8;
+      --purple:      #6B3BA8;
+      --purple-light:#F3EDFC;
+      --grey:        #6B7280;
+      --grey-light:  #F3F4F6;
+      --border:      #D1D5DB;
+      --text:        #1F2937;
+      --white:       #FFFFFF;
+      --radius:      12px;
+      --shadow:      0 2px 16px rgba(0,0,0,.08);
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--grey-light);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 16px;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    #app { max-width: 720px; margin: 0 auto; }
+
+    /* ── HEADER ─────────────────────────────────────────── */
+    header {
+      background: linear-gradient(135deg, var(--blue-dark) 0%, var(--blue) 100%);
+      color: var(--white);
+      border-radius: var(--radius);
+      padding: 20px 24px;
+      margin-bottom: 16px;
+      box-shadow: var(--shadow);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .header-icon {
+      font-size: 36px;
+      flex-shrink: 0;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,.2));
+    }
+    .header-text h1  { font-size: 20px; font-weight: 700; letter-spacing: -.3px; }
+    .header-text sub { display: block; font-size: 12px; opacity: .75; margin-top: 2px; font-style: italic; }
+
+    /* ── INSTRUCTIONS ───────────────────────────────────── */
+    #instructions {
+      background: var(--white);
+      border-radius: var(--radius);
+      padding: 20px 22px;
+      margin-bottom: 16px;
+      box-shadow: var(--shadow);
+    }
+    #instructions h2 {
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .8px;
+      color: var(--grey);
+      margin-bottom: 14px;
+    }
+    .steps { display: flex; flex-direction: column; gap: 12px; }
+    .step {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+    }
+    .step-num {
+      width: 26px; height: 26px;
+      background: var(--blue);
+      color: var(--white);
+      border-radius: 50%;
+      font-size: 12px;
+      font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .step-body { flex: 1; }
+    .step-body strong { display: block; font-size: 13px; font-weight: 600; margin-bottom: 2px; }
+    .step-body span   { font-size: 12px; color: var(--grey); line-height: 1.4; }
+
+    /* Share icon pill */
+    .share-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: var(--grey-light);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 2px 8px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text);
+      vertical-align: middle;
+      margin: 0 2px;
+    }
+    .share-pill svg { width: 13px; height: 13px; flex-shrink: 0; }
+
+    /* ── DOWNLOAD CERT BUTTON ───────────────────────────── */
+    #btn-download-cert {
+      margin-top: 16px;
+      padding: 10px 22px;
+      border: none;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: opacity .15s, transform .1s;
+    }
+    #btn-download-cert:active { transform: scale(.97); }
+    #btn-download-cert:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+    .level-D #btn-download-cert { background: var(--blue);   color: var(--white); }
+    .level-I #btn-download-cert { background: var(--orange); color: var(--white); }
+    .level-A #btn-download-cert { background: var(--purple); color: var(--white); }
+    .level-none #btn-download-cert { display: none; }
+
+    /* Download option highlight */
+    .dl-option {
+      display: inline-block;
+      background: #FFF8E8;
+      border: 1px solid #F0C060;
+      border-radius: 5px;
+      padding: 1px 7px;
+      font-size: 11px;
+      font-weight: 600;
+      color: #7A5000;
+    }
+
+    .step-divider {
+      width: 1px;
+      background: var(--border);
+      height: 8px;
+      margin-left: 13px;
+    }
+
+    /* ── DROP ZONE ──────────────────────────────────────── */
+    #drop-zone {
+      background: var(--white);
+      border: 2.5px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 36px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color .2s, background .2s;
+      box-shadow: var(--shadow);
+      margin-bottom: 16px;
+    }
+    #drop-zone:hover, #drop-zone.drag-over {
+      border-color: var(--blue);
+      background: var(--blue-light);
+    }
+    #drop-zone .dz-icon { font-size: 44px; margin-bottom: 10px; }
+    #drop-zone .dz-main {
+      font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 5px;
+    }
+    #drop-zone .dz-hint { font-size: 12px; color: var(--grey); }
+    #drop-zone .dz-hint strong { color: var(--blue); cursor: pointer; }
+    #drop-zone .dz-tag {
+      display: inline-block;
+      margin-top: 12px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: .5px;
+      color: var(--blue);
+      background: var(--blue-light);
+      border-radius: 99px;
+      padding: 3px 12px;
+    }
+    #file-input { display: none; }
+
+    /* ── LOADING ────────────────────────────────────────── */
+    #loading {
+      background: var(--white);
+      border-radius: var(--radius);
+      padding: 48px 20px;
+      text-align: center;
+      box-shadow: var(--shadow);
+      margin-bottom: 16px;
+    }
+    .spinner {
+      width: 42px; height: 42px;
+      border: 4px solid var(--border);
+      border-top-color: var(--blue);
+      border-radius: 50%;
+      margin: 0 auto 14px;
+      animation: spin .75s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #loading p { color: var(--grey); font-size: 13px; }
+
+    /* ── ERROR ──────────────────────────────────────────── */
+    #error {
+      background: #FFF0F0;
+      border: 1px solid #FECACA;
+      border-radius: var(--radius);
+      padding: 16px 18px;
+      color: #991B1B;
+      margin-bottom: 16px;
+    }
+    #error .err-title { font-weight: 700; margin-bottom: 4px; }
+
+    /* ── RESULTS ────────────────────────────────────────── */
+
+    /* -- Certification card -- */
+    #cert-card {
+      border-radius: var(--radius);
+      padding: 28px 24px 22px;
+      margin-bottom: 16px;
+      box-shadow: var(--shadow);
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+    #cert-card.level-none   { background: var(--white); border: 2px solid var(--border); }
+    #cert-card.level-D      { background: linear-gradient(145deg, #EAF2FC 0%, #F8FBFF 100%); border: 2px solid #B5D4F5; }
+    #cert-card.level-I      { background: linear-gradient(145deg, #FEF3E8 0%, #FFFBF7 100%); border: 2px solid #FAD090; }
+    #cert-card.level-A      { background: linear-gradient(145deg, #F3EDFC 0%, #FCF9FF 100%); border: 2px solid #C9A8F0; }
+
+    .cert-medal { font-size: 52px; margin-bottom: 8px; line-height: 1; }
+    .cert-level-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+    .level-none  .cert-level-label { color: var(--grey); }
+    .level-D     .cert-level-label { color: var(--blue); }
+    .level-I     .cert-level-label { color: var(--orange); }
+    .level-A     .cert-level-label { color: var(--purple); }
+
+    .cert-title {
+      font-size: 22px;
+      font-weight: 800;
+      margin-bottom: 6px;
+    }
+    .level-none .cert-title { color: var(--grey); }
+    .level-D    .cert-title { color: var(--blue-dark); }
+    .level-I    .cert-title { color: var(--orange); }
+    .level-A    .cert-title { color: var(--purple); }
+
+    .cert-user {
+      font-size: 15px;
+      font-weight: 500;
+      color: var(--text);
+      margin-bottom: 14px;
+    }
+    .cert-user span { font-weight: 700; }
+    .cert-user .email-badge {
+      display: inline-block;
+      font-size: 11px;
+      color: var(--grey);
+      background: var(--grey-light);
+      border-radius: 99px;
+      padding: 2px 10px;
+      margin-left: 6px;
+      font-weight: 400;
+    }
+    .cert-no-user { font-size: 12px; color: var(--grey); font-style: italic; margin-bottom: 14px; }
+
+    /* -- Next level hint -- */
+    .cert-next {
+      display: inline-block;
+      font-size: 11px;
+      color: var(--grey);
+      background: rgba(0,0,0,.05);
+      border-radius: 6px;
+      padding: 5px 12px;
+      margin-top: 4px;
+    }
+
+    /* -- Score breakdown -- */
+    #score-breakdown {
+      background: var(--white);
+      border-radius: var(--radius);
+      padding: 18px 22px;
+      margin-bottom: 16px;
+      box-shadow: var(--shadow);
+    }
+    #score-breakdown h3 {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .8px;
+      color: var(--grey);
+      margin-bottom: 14px;
+    }
+    .level-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .level-row:last-child { margin-bottom: 0; }
+    .lvl-tag {
+      width: 96px;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 0;
+      text-align: center;
+      border-radius: 6px;
+      flex-shrink: 0;
+    }
+    .lvl-tag.D { background: var(--blue-light);   color: var(--blue); }
+    .lvl-tag.I { background: var(--orange-light);  color: var(--orange); }
+    .lvl-tag.A { background: var(--purple-light);  color: var(--purple); }
+
+    .lvl-track {
+      flex: 1;
+      height: 8px;
+      background: var(--border);
+      border-radius: 99px;
+      overflow: hidden;
+    }
+    .lvl-fill {
+      height: 100%;
+      border-radius: 99px;
+      transition: width .6s ease;
+      width: 0%;
+    }
+    .lvl-fill.D { background: linear-gradient(90deg, var(--blue), #60A5FA); }
+    .lvl-fill.I { background: linear-gradient(90deg, var(--orange), #FDBA74); }
+    .lvl-fill.A { background: linear-gradient(90deg, var(--purple), #C084FC); }
+
+    .lvl-count {
+      font-size: 13px;
+      font-weight: 700;
+      min-width: 48px;
+      text-align: right;
+    }
+    .lvl-count.D { color: var(--blue); }
+    .lvl-count.I { color: var(--orange); }
+    .lvl-count.A { color: var(--purple); }
+
+    /* ── EXERCISE LIST ──────────────────────────────────── */
+    .seq-group {
+      background: var(--white);
+      border-radius: var(--radius);
+      margin-bottom: 10px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .seq-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 11px 16px;
+      background: var(--blue-light);
+      border-bottom: 1px solid #C7DDF7;
+      cursor: pointer;
+      user-select: none;
+    }
+    .seq-left { display: flex; align-items: center; gap: 9px; }
+    .seq-badge {
+      background: var(--blue);
+      color: var(--white);
+      border-radius: 5px;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 8px;
+      letter-spacing: .4px;
+    }
+    .seq-title { font-size: 13px; font-weight: 600; color: var(--blue-dark); }
+    .seq-right { display: flex; align-items: center; gap: 10px; }
+    .seq-count { font-size: 12px; color: var(--grey); font-weight: 500; }
+    .seq-chevron { font-size: 10px; color: var(--grey); transition: transform .2s; }
+    .seq-group.collapsed .seq-chevron { transform: rotate(-90deg); }
+    .seq-group.collapsed .seq-body    { display: none; }
+
+    .ex-row {
+      display: grid;
+      grid-template-columns: 28px 1fr auto auto;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 16px;
+      border-bottom: 1px solid var(--grey-light);
+      transition: background .12s;
+    }
+    .ex-row:last-child { border-bottom: none; }
+    .ex-row:hover { background: #FAFBFC; }
+
+    .ex-icon { font-size: 17px; text-align: center; }
+    .ex-name {
+      font-size: 13px;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .ex-name.done { color: var(--green); }
+    .ex-name.miss { color: #B91C1C; }
+    .ex-detail {
+      font-size: 11px;
+      color: var(--grey);
+      margin-top: 1px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .ex-id {
+      font-family: monospace;
+      font-size: 10px;
+      color: var(--grey);
+      background: var(--grey-light);
+      border-radius: 4px;
+      padding: 2px 6px;
+      flex-shrink: 0;
+    }
+    .niv-badge {
+      font-size: 10px;
+      font-weight: 700;
+      border-radius: 99px;
+      padding: 2px 8px;
+      flex-shrink: 0;
+    }
+    .niv-badge.D { background: var(--blue-light);   color: var(--blue); }
+    .niv-badge.I { background: var(--orange-light);  color: var(--orange); }
+    .niv-badge.A { background: var(--purple-light);  color: var(--purple); }
+
+    /* ── RESET BUTTON ───────────────────────────────────── */
+    #btn-reset {
+      display: block;
+      width: 100%;
+      margin-top: 14px;
+      padding: 11px;
+      background: var(--white);
+      color: var(--blue);
+      border: 1.5px solid #B3D4F5;
+      border-radius: var(--radius);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .15s;
+    }
+    #btn-reset:hover { background: var(--blue-light); }
+
+    /* ── UTILITY ────────────────────────────────────────── */
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+<div id="app">
+
+  <!-- HEADER -->
+  <header>
+    <div class="header-icon">🎓</div>
+    <div class="header-text">
+      <h1>Certification Formation Grist</h1>
+      <sub>Mooc · Grist</sub>
+    </div>
+  </header>
+
+  <!-- INSTRUCTIONS -->
+  <div id="instructions">
+    <h2>Comment récupérer votre fichier de certification ?</h2>
+    <div class="steps">
+
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <strong>Ouvrez votre document de formation Grist</strong>
+          <span>
+            En haut à droite de l'interface, cliquez sur l'icône de partage
+            <span class="share-pill">
+              <!-- Share icon (3 nœuds reliés — style Android) -->
+              <svg viewBox="0 0 18 18" fill="none" stroke-linecap="round">
+                <circle cx="13.5" cy="2.5"  r="2.2" fill="currentColor"/>
+                <circle cx="4.5"  cy="9"    r="2.2" fill="currentColor"/>
+                <circle cx="13.5" cy="15.5" r="2.2" fill="currentColor"/>
+                <line x1="6.4" y1="7.9"  x2="11.7" y2="3.7"  stroke="currentColor" stroke-width="1.5"/>
+                <line x1="6.4" y1="10.1" x2="11.7" y2="14.3" stroke="currentColor" stroke-width="1.5"/>
+              </svg>
+              Partager
+            </span>
+          </span>
+        </div>
+      </div>
+
+      <div class="step-divider"></div>
+
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <strong>Téléchargez le document complet</strong>
+          <span>
+            Dans le menu, sélectionnez <span class="dl-option">Télécharger</span>
+            puis choisissez
+            <span class="dl-option">Télécharger le document complet&nbsp;(avec l'historique des modifications)</span>.
+            <br/>⚠️ L'historique est indispensable pour valider votre identité.
+          </span>
+        </div>
+      </div>
+
+      <div class="step-divider"></div>
+
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <strong>Déposez votre fichier .grist ci-dessous</strong>
+          <span>Le widget analysera automatiquement vos exercices et génèrera votre niveau de certification.</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- DROP ZONE -->
+  <div id="drop-zone">
+    <div class="dz-icon">📂</div>
+    <p class="dz-main">Déposez votre fichier <strong>.grist</strong> ici</p>
+    <p class="dz-hint">ou <strong>cliquez pour parcourir</strong> vos fichiers</p>
+    <span class="dz-tag">.grist uniquement</span>
+    <input type="file" id="file-input" accept=".grist" />
+  </div>
+
+  <!-- LOADING -->
+  <div id="loading" class="hidden">
+    <div class="spinner"></div>
+    <p>Analyse du fichier en cours…</p>
+  </div>
+
+  <!-- ERROR -->
+  <div id="error" class="hidden">
+    <div class="err-title">⚠️ Erreur</div>
+    <div id="error-msg"></div>
+  </div>
+
+  <!-- RESULTS -->
+  <div id="results" class="hidden">
+
+    <!-- Certification card -->
+    <div id="cert-card">
+      <div class="cert-medal" id="cert-medal"></div>
+      <div class="cert-level-label" id="cert-level-label"></div>
+      <div class="cert-title" id="cert-title"></div>
+      <div id="cert-user-block"></div>
+      <button id="btn-download-cert" disabled>
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M8 2v9M5 8l3 3 3-3M2 13h12"/>
+        </svg>
+        Télécharger mon certificat PDF
+      </button>
+      <div class="cert-next" id="cert-next"></div>
+    </div>
+
+    <!-- Score breakdown by level -->
+    <div id="score-breakdown">
+      <h3>Détail par niveau</h3>
+      <div class="level-row">
+        <span class="lvl-tag D">Débutant</span>
+        <div class="lvl-track"><div class="lvl-fill D" id="fill-D"></div></div>
+        <span class="lvl-count D" id="count-D"></span>
+      </div>
+      <div class="level-row">
+        <span class="lvl-tag I">Intermédiaire</span>
+        <div class="lvl-track"><div class="lvl-fill I" id="fill-I"></div></div>
+        <span class="lvl-count I" id="count-I"></span>
+      </div>
+      <div class="level-row">
+        <span class="lvl-tag A">Avancé</span>
+        <div class="lvl-track"><div class="lvl-fill A" id="fill-A"></div></div>
+        <span class="lvl-count A" id="count-A"></span>
+      </div>
+    </div>
+
+    <!-- Exercise list by sequence -->
+    <div id="sequences"></div>
+
+    <!-- Reset -->
+    <button id="btn-reset">↩ Analyser un autre fichier</button>
+
+  </div><!-- /#results -->
+
+</div><!-- /#app -->
+
+<!-- sql.js — SQLite en WebAssembly -->
+<script src="https://cdn.jsdelivr.net/npm/sql.js@1.10.2/dist/sql-wasm.js"></script>
+<!-- pdf-lib — Génération PDF client-side -->
+<script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+<!-- Grist widget API -->
+<script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+<!-- Widget logic -->
+<script src="main.js"></script>
+</body>
+</html>
