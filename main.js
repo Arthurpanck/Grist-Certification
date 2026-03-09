@@ -685,7 +685,7 @@ async function generateAndDownloadCert(results, userInfo) {
   try {
     const { PDFDocument, StandardFonts, rgb } = PDFLib;
 
-    const templateBytes = await fetch('./Template_Certificat_Grist_MOOC - 3.pdf').then(r => {
+    const templateBytes = await fetch('./Template_Certificat_Grist_MOOC_-_3.pdf').then(r => {
       if (!r.ok) throw new Error(`Template introuvable (HTTP ${r.status})`);
       return r.arrayBuffer();
     });
